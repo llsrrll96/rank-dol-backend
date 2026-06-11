@@ -1,9 +1,9 @@
 import os
 import httpx
 from supabase import create_client, Client
-from typing import List, Optional
-from .schemas import IdolGroupData
+from typing import Optional
 from fastapi import UploadFile
+
 def get_supabase_client() -> Client:
     url = os.environ.get("SUPABASE_URL", "")
     key = os.environ.get("SUPABASE_KEY", "")
@@ -12,10 +12,6 @@ def get_supabase_client() -> Client:
     return create_client(url, key)
 
 async def upload_image_to_storage(client: Client, image_url: str, group_name: str) -> str:
-    """
-    Downloads an image from original URL and uploads to Supabase Storage.
-    Returns the public URL of the uploaded image.
-    """
     if not image_url:
         return None
         
@@ -44,7 +40,6 @@ async def upload_image_to_storage(client: Client, image_url: str, group_name: st
             image_data = response.content
             
         # Uploading to Supabase
-        # .upload() expects a byte block
         res = client.storage.from_(bucket_name).upload(
             file=image_data,
             path=file_path,
@@ -56,7 +51,7 @@ async def upload_image_to_storage(client: Client, image_url: str, group_name: st
         return public_url
     except Exception as e:
         print(f"Failed to upload image for {group_name}: {e}")
-        return image_url # fallback to original
+        return image_url
 
 async def upload_file_to_storage(client: Client, file: UploadFile, group_name: str) -> Optional[str]:
     if not file or not file.filename:
@@ -96,42 +91,3 @@ async def delete_image_from_storage(client: Client, image_url: str):
             print(f"Deleted image from storage: {file_path}")
     except Exception as e:
         print(f"Failed to delete image {image_url}: {e}")
-
-async def save_crawled_data(groups: List[IdolGroupData]):
-    """
-    Saves the data and uploaded new image URL to the database.
-    """
-    if not groups:
-        print("No groups to save.")
-        return
-        
-    client = get_supabase_client()
-    
-    try:
-        existing_resp = client.table("idol_groups").select("name").execute()
-        existing_names = {row["name"] for row in existing_resp.data}
-    except Exception as e:
-        print(f"Failed to fetch existing groups: {e}")
-        existing_names = set()
-    
-    for group in groups:
-        if group.name in existing_names:
-            print(f"Skipping duplicate: {group.name}")
-            continue
-            
-        # 1. Upload Image
-        new_image_url = None
-        if group.original_image_url:
-            new_image_url = await upload_image_to_storage(client, group.original_image_url, group.name)
-            
-        # 2. Insert DB
-        record = {
-            "name": group.name,
-            "image_url": new_image_url,
-        }
-        
-        try:
-            resp = client.table("idol_groups").insert(record).execute()
-            print(f"Saved: {group.name}")
-        except Exception as e:
-            print(f"Database insertion failed for {group.name}: {e}")

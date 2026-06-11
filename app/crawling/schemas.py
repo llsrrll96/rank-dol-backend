@@ -8,9 +8,3 @@ class CrawlResponse(BaseModel):
 class IdolGroupData(BaseModel):
     name: str
     original_image_url: Optional[str] = None
-
-class IdolGroupResponse(BaseModel):
-    id: int
-    name: str
-    image_url: Optional[str] = None
-    created_at: Optional[str] = None

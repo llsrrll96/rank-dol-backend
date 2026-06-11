@@ -1,0 +1,1 @@
+"""Idols module."""
