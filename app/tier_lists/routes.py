@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, status
 from typing import List
+from passlib.context import CryptContext
 
 from .schemas import (
     TierListCreate,
@@ -12,6 +13,17 @@ from .schemas import (
 from ..common.storage import get_supabase_client
 
 router = APIRouter(prefix="/api/tier-lists", tags=["Tier Lists"])
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def verify_password(plain_password, hashed_password):
+    if not hashed_password:
+        return False
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    if not password:
+        return None
+    return pwd_context.hash(password)
 
 
 @router.get("", response_model=TierListPageResponse)
@@ -82,6 +94,11 @@ def create_tier_list(body: TierListCreate):
         "tiers": tiers_data,
     }
 
+    if body.password:
+        record["password"] = get_password_hash(body.password)
+    if body.creator_id:
+        record["creator_id"] = body.creator_id
+
     try:
         resp = client.table("tier_lists").insert(record).execute()
         return resp.data[0]
@@ -98,6 +115,16 @@ def update_tier_list(id: int, body: TierListUpdate):
     existing = client.table("tier_lists").select("*").eq("id", id).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Tier list not found")
+        
+    db_record = existing.data[0]
+    
+    # 권한 검증 - 비밀번호가 설정된 표우
+    if db_record.get("password"):
+        if not body.password or not verify_password(body.password, db_record["password"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="비밀번호가 일치하지 않거나 누락되었습니다."
+            )
 
     updates = {}
     if body.title is not None:
@@ -106,7 +133,9 @@ def update_tier_list(id: int, body: TierListUpdate):
         updates["tiers"] = [t.model_dump() for t in body.tiers]
 
     if not updates:
-        return existing.data[0]
+        # 삭제된 비밀번호 필드가 반환되지 않도록 필터링
+        db_record.pop("password", None)
+        return db_record
 
     try:
         resp = (
@@ -121,13 +150,23 @@ def update_tier_list(id: int, body: TierListUpdate):
 
 
 @router.delete("/{id}")
-def delete_tier_list(id: int):
+def delete_tier_list(id: int, password: str = Query(None, description="삭제를 위한 비밀번호")):
     """특정 티어 리스트 삭제"""
     client = get_supabase_client()
 
-    existing = client.table("tier_lists").select("id").eq("id", id).execute()
+    existing = client.table("tier_lists").select("*").eq("id", id).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Tier list not found")
+
+    db_record = existing.data[0]
+    
+    # 권한 검증
+    if db_record.get("password"):
+        if not password or not verify_password(password, db_record["password"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="비밀번호가 일치하지 않거나 누락되었습니다."
+            )
 
     try:
         client.table("tier_lists").delete().eq("id", id).execute()

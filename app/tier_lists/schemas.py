@@ -22,11 +22,14 @@ class TierItem(BaseModel):
 class TierListCreate(BaseModel):
     title: str
     tiers: Optional[List[TierItem]] = None  # None이면 기본 티어 세트 사용
+    password: Optional[str] = None
+    creator_id: Optional[str] = None
 
 
 class TierListUpdate(BaseModel):
     title: Optional[str] = None
     tiers: Optional[List[TierItem]] = None
+    password: Optional[str] = None
 
 
 class TierListResponse(BaseModel):
