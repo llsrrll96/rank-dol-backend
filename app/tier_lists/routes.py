@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, status
 from typing import List
-from passlib.context import CryptContext
+import bcrypt
 
 from .schemas import (
     TierListCreate,
@@ -13,17 +13,27 @@ from .schemas import (
 from ..common.storage import get_supabase_client
 
 router = APIRouter(prefix="/api/tier-lists", tags=["Tier Lists"])
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def verify_password(plain_password, hashed_password):
-    if not hashed_password:
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if not hashed_password or not plain_password:
         return False
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        pwd_bytes = plain_password.encode('utf-8')
+        if len(pwd_bytes) > 72:
+            pwd_bytes = pwd_bytes[:72]
+        hash_bytes = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(pwd_bytes, hash_bytes)
+    except Exception:
+        return False
 
-def get_password_hash(password):
+def get_password_hash(password: str) -> str:
     if not password:
         return None
-    return pwd_context.hash(password)
+    pwd_bytes = password.encode('utf-8')
+    if len(pwd_bytes) > 72:
+        pwd_bytes = pwd_bytes[:72]
+    hashed_bytes = bcrypt.hashpw(pwd_bytes, bcrypt.gensalt())
+    return hashed_bytes.decode('utf-8')
 
 
 @router.get("", response_model=TierListPageResponse)

@@ -7,4 +7,4 @@ python-dotenv==1.0.1
 playwright==1.44.0
 python-multipart==0.0.9
 PyJWT==2.8.0
-passlib[bcrypt]==1.7.4
+bcrypt==4.1.3
