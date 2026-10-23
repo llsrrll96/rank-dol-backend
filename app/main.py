@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .crawling.routes import router as crawling_router
+from .idol_groups.routes import router as idol_groups_router
 from .idols.routes import router as idols_router
 from .tier_lists.routes import router as tier_lists_router
 from .auth.routes import router as auth_router
@@ -21,6 +22,7 @@ app.add_middleware(
 )
 
 app.include_router(crawling_router)
+app.include_router(idol_groups_router)
 app.include_router(idols_router)
 app.include_router(tier_lists_router)
 app.include_router(auth_router)

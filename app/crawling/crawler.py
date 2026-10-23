@@ -47,13 +47,19 @@ async def crawl_idol_groups() -> List[IdolGroupData]:
                 # 이미지: a.shrink-0 img
                 img_el = await item.query_selector("a.shrink-0 img")
                 img_src = await img_el.get_attribute("src") if img_el else None
+
+                # 그룹 상세 페이지 경로: a.shrink-0 의 href (예: /team/222). 멤버 크롤링에 사용한다.
+                link_el = await item.query_selector("a[href^='/team/'].shrink-0")
+                href = await link_el.get_attribute("href") if link_el else None
+                source_url = href.split("?")[0] if href else None
                 
                 logger.info(f"Item found - name: '{name}', img_src: '{img_src}'")
                 
                 if name and name != "Unknown Group":
                     groups_data.append(IdolGroupData(
                         name=name.strip(),
-                        original_image_url=img_src
+                        original_image_url=img_src,
+                        source_url=source_url,
                     ))
             
             logger.info(f"Extracted {len(groups_data)} groups from DOM.")
