@@ -17,6 +17,11 @@ class VerifyCodeResponse(BaseModel):
     message: str
 
 
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 class RegisterRequest(BaseModel):
     email: str
     username: str

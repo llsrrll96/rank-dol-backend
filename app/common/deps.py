@@ -40,3 +40,15 @@ async def get_current_user(
         )
 
     return user
+
+
+async def require_admin(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """관리자(role=ADMIN)만 통과. role은 토큰이 아니라 DB의 현재 값으로 확인."""
+    if current_user.get("role") != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자만 접근할 수 있습니다.",
+        )
+    return current_user

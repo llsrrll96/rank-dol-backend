@@ -1,10 +1,12 @@
 import logging
-from fastapi import APIRouter, HTTPException
+import bcrypt
+from fastapi import APIRouter, HTTPException, Request
 
 from .schemas import (
     SendCodeRequest,
     VerifyCodeRequest,
     VerifyCodeResponse,
+    AdminLoginRequest,
     RegisterRequest,
     AuthResponse,
     UserResponse,
@@ -19,6 +21,8 @@ from .services import (
     update_last_login,
     create_access_token,
 )
+from . import rate_limit
+from ..common.storage import get_supabase_client
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -130,4 +134,47 @@ def register(body: RegisterRequest):
             role=user["role"],
         ),
         message="회원가입 완료",
+    )
+
+
+@router.post("/admin/login", response_model=AuthResponse)
+def admin_login(body: AdminLoginRequest, request: Request):
+    """관리자 로그인 (아이디/비밀번호). role=ADMIN 계정만 통과."""
+    ip = request.client.host if request.client else "unknown"
+    keys = (f"ip:{ip}", f"user:{body.username.lower()}")
+
+    # 잠금 상태 확인 (비밀번호 검증 전에 먼저 차단)
+    rate_limit.check_locked(*keys)
+
+    client = get_supabase_client()
+    resp = (
+        client.table("users")
+        .select("*")
+        .eq("username", body.username)
+        .eq("role", "ADMIN")
+        .limit(1)
+        .execute()
+    )
+    user = resp.data[0] if resp.data else None
+    hashed = user.get("password_hash") if user else None
+
+    if not hashed or not bcrypt.checkpw(body.password.encode(), hashed.encode()):
+        rate_limit.record_failure(*keys)
+        logger.warning(f"Admin login failed: username={body.username} ip={ip}")
+        raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 올바르지 않습니다.")
+
+    rate_limit.reset(*keys)
+    update_last_login(user["id"])
+    token = create_access_token(str(user["id"]), user["email"])
+    logger.info(f"Admin login success: {body.username}")
+
+    return AuthResponse(
+        access_token=token,
+        user=UserResponse(
+            id=str(user["id"]),
+            email=user["email"],
+            username=user["username"],
+            role=user["role"],
+        ),
+        message="관리자 로그인 성공",
     )

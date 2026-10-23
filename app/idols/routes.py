@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from typing import List, Optional
 from .schemas import IdolGroupResponse
 from ..common.storage import get_supabase_client, upload_file_to_storage, delete_image_from_storage
+from ..common.deps import require_admin
 
 router = APIRouter(prefix="/api/idols", tags=["Idols"])
 
@@ -27,7 +28,7 @@ def get_idol(id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("", response_model=IdolGroupResponse)
+@router.post("", response_model=IdolGroupResponse, dependencies=[Depends(require_admin)])
 async def create_idol(name: str = Form(...), image: Optional[UploadFile] = File(None)):
     client = get_supabase_client()
     
@@ -51,7 +52,7 @@ async def create_idol(name: str = Form(...), image: Optional[UploadFile] = File(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/{id}", response_model=IdolGroupResponse)
+@router.put("/{id}", response_model=IdolGroupResponse, dependencies=[Depends(require_admin)])
 async def update_idol(id: int, name: Optional[str] = Form(None), image: Optional[UploadFile] = File(None)):
     client = get_supabase_client()
     
@@ -91,7 +92,7 @@ async def update_idol(id: int, name: Optional[str] = Form(None), image: Optional
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/{id}")
+@router.delete("/{id}", dependencies=[Depends(require_admin)])
 async def delete_idol(id: int):
     client = get_supabase_client()
     

@@ -58,11 +58,14 @@ async def upload_file_to_storage(client: Client, file: UploadFile, group_name: s
         return None
         
     import hashlib
+    import uuid
     bucket_name = os.environ.get("SUPABASE_BUCKET", "images")
     
     file_extension = file.filename.split(".")[-1] if "." in file.filename else "jpg"
     safe_group_name = hashlib.md5(group_name.encode('utf-8')).hexdigest()
-    file_name = f"{safe_group_name}.{file_extension}"
+    # 업로드마다 고유한 파일명을 써서, 같은 확장자로 이미지를 교체해도
+    # 이전 파일 삭제가 새 파일을 지우지 않고 캐시된 옛 이미지도 보이지 않게 한다.
+    file_name = f"{safe_group_name}-{uuid.uuid4().hex[:8]}.{file_extension}"
     file_path = f"idol_groups/{file_name}"
     
     try:

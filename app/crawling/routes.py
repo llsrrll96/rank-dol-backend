@@ -1,5 +1,6 @@
 import logging
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from ..common.deps import require_admin
 from .schemas import CrawlResponse
 from .crawler import crawl_idol_groups
 from .services import save_crawled_data
@@ -27,7 +28,7 @@ async def run_crawling_task():
     except Exception as e:
         logger.error(f"Crawling failed: {e}")
 
-@router.post("/api/crawl", response_model=CrawlResponse)
+@router.post("/api/crawl", response_model=CrawlResponse, dependencies=[Depends(require_admin)])
 def trigger_crawl(background_tasks: BackgroundTasks):
     try:
         background_tasks.add_task(run_crawling_task)
